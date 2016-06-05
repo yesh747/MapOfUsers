@@ -1,17 +1,12 @@
 //global variables
-var userLocationData = [];
-var stateId = {};
-var countyId = {};
-
+var userLocationData = []; //contains users GPS coordiantes
+var stateId = {}; //contains state name and ID
+var countyId = {}; //contains county name and ID
 
 //get location data from user data
 d3.json('sampledata.json', function(d){
   for (var i = 0; i < d.user.length; i++) {
     var location = d.user[i].run[0].loc[0].map(Number);
-    // //reduce precision of GPS coordinates for grouping effect
-    // for (var x = 0; x<location.length; x++) {
-    //   location[x] = location[x].toFixed(2);
-    // }
     userLocationData.push(location);
   };
 })
@@ -21,17 +16,20 @@ d3.json('counties.json', function(d){
   var dataState = topojson.feature(d, d.objects.states).features;
   var dataCounties = topojson.feature(d, d.objects.counties).features;
 
+  //states
   d3.tsv("us-state-names.tsv", function(tsv){
-      tsv.forEach(function(d, i){
-        stateId[d.id] = d.name;
-      })
-    })
+    tsv.forEach(function(d, i){
+      stateId[d.id] = d.name;
+    });
+  });
+
+  //counties
   d3.tsv("us-county-names.tsv", function(tsv){
     tsv.forEach(function(d, i){
       countyId[d.id] = d.name;
-    })
-  })
-})
+    });
+  });
+});
 
 //boundaries and setup for svg object and map object
 var w = 960,
@@ -40,7 +38,7 @@ var w = 960,
 var tempcolor;
 var svg = d3.select('body').append('svg')
   .attr('width', w)
-  .attr('height', h)
+  .attr('height', h);
 
 //tooltip
 var tooltip = d3.select('body').append('div')
@@ -48,44 +46,77 @@ var tooltip = d3.select('body').append('div')
 
 //Projection type of map
 var projection = d3.geo.albersUsa()
-  .scale(1000)
+  .scale(1000);
 var path = d3.geo.path()
-  .projection(projection)
+  .projection(projection);
 
 //Creating map from json file
 d3.json('counties.json', function(error, us){
   if (error) throw error;
 
-//display counties
+  //create div for extra stuff
+  var temp = svg.append('div').attr('id', 'extra');
+
+  //display counties
   var counties = svg.append('g')
     .attr('class', 'county-boundary')
     .selectAll('path').data(topojson.feature(us, us.objects.counties).features)
     .enter().append('path')
     .attr('d', path)
-    .attr('fill', '#efefef')
-    .attr('stroke','#ffffff').attr('stroke-width', '.5')
+    .attr('fill', function(d){
+      var paper = new Raphael('extra');
+      var statepath = path(d);
+      for (var j = 0; j < userLocationData.length; j++){
+        var fill = '#efefef';
+        var pixelLocation = projection([userLocationData[j][1], userLocationData[j][0]])
+        var p = paper.path(statepath).attr('stroke', 'none')
+        if (p.isPointInside(pixelLocation[0], pixelLocation[1])){
+          fill = 'red';
+        }
+      }
+      return fill
+    })
+    .attr('stroke','#ffffff').attr('stroke-width', '.25')
     .on('mouseover', function(d){
-      d3.select(this).attr('fill', 'blue');
-//tooltip to display county and state names
+      tempcolor = this.style.fill;
+      d3.select(this).style('fill', 'blue');
+      //tooltip to display county and state names
       tooltip.transition()
-        .style('opacity', .7)
+        .style('opacity', .7);
       tooltip.html(countyId[d.id] + ', ' + stateId[Math.round(d.id/1000)])
         .style('left', d3.event.pageX-40 + 'px')
         .style('top', d3.event.pageY-30 + 'px')
         .style('font-size','8px')
-        .style('padding', '2px')
+        .style('padding', '2px');
     })
     .on('mouseout', function(){
-      d3.select(this).attr('fill', '#efefef');
+      d3.select(this).style('fill', tempcolor);
     });
 
-//display states
+  //display states
   var state = svg.append('g')
     .attr('class', 'state-boundary')
+    .attr('id', 'state-boundary')
     .selectAll('path').data(topojson.feature(us, us.objects.states).features)
     .enter().append('path')
     .attr('d', path)
-    .attr('fill', 'none').attr('stroke','#ffffff').attr('stroke-width', '2');
+    .attr('id', function(d){
+      return stateId[d.id];
+    })
+    .attr('fill', function(d){
+      var paper = new Raphael('extra');
+      var statepath = path(d);
+      for (var j = 0; j < userLocationData.length; j++){
+        var fill = 'none';
+        // var pixelLocation = projection([userLocationData[j][1], userLocationData[j][0]])
+        // var p = paper.path(statepath).attr('stroke', 'none')
+        // if (p.isPointInside(pixelLocation[0], pixelLocation[1])){
+        //   fill = 'red';
+        // }
+      }
+      return fill
+    })
+    .attr('stroke','#ffffff').attr('stroke-width', '1');
 
 //display user-locations on map
   var users = svg.append('g').attr('class', 'users')
