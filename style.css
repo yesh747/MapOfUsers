@@ -10,3 +10,14 @@
   stroke: #FFFFF;
   stroke-width: 2px
 }*/
+
+.tooltip {
+  position: absolute;
+  opacity: 0;
+  background: none;
+  color: #000000;
+  padding: 10 10;
+  font-size: 50;
+  font-family: Helvetica;
+  font-weight: lighter;
+}
